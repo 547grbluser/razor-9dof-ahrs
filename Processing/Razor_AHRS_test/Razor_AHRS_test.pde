@@ -41,7 +41,7 @@ float yawOffset = 0.0f;
 
 PFont font;
 
-boolean useSerial = true;
+boolean useSerial = false;
 Serial serial;
 
 boolean synched = false;
@@ -216,17 +216,21 @@ void draw() {
     }
   }
   
-  if(RXdata.length() > 0 && RXdata.indexOf("#YPR=") == 0){
-    float x = Float.parseFloat(RXdata.split(",")[0].split("=")[1]);
-    float y = Float.parseFloat(RXdata.split(",")[1]);
-    float z = Float.parseFloat(RXdata.split(",")[2]);
-    //println(x);
-    //println(y);
-    //println(z);
-    yaw = x;
-    pitch = y;
-    roll = z;
-    RXdata = "";
+  try{
+    if(RXdata.length() > 0 && RXdata.indexOf("#YPR=") == 0){
+      float x = Float.parseFloat(RXdata.split(",")[0].split("=")[1]);
+      float y = Float.parseFloat(RXdata.split(",")[1]);
+      float z = Float.parseFloat(RXdata.split(",")[2]);
+      //println(x);
+      //println(y);
+      //println(z);
+      yaw = x;
+      pitch = y;
+      roll = z;
+      RXdata = "";
+    }
+  }catch (Throwable t) {
+    println(t.toString());
   }
 
   // Draw board
@@ -253,6 +257,11 @@ void draw() {
 }
 
 void keyPressed() {
+  if(key == 'a')
+    yawOffset = yaw;
+  
+  if(!useSerial)
+    return;
   switch (key) {
     case '0':  // Turn Razor's continuous output stream off
       serial.write("#o0");
@@ -263,8 +272,6 @@ void keyPressed() {
     case 'f':  // Request one single yaw/pitch/roll frame from Razor (use when continuous streaming is off)
       serial.write("#f");
       break;
-    case 'a':  // Align screen with Razor
-      yawOffset = yaw;
   }
 }
 
