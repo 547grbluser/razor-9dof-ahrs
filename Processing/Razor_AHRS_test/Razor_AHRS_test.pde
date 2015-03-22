@@ -21,12 +21,13 @@
 
 import processing.opengl.*;
 import processing.serial.*;
+import hypermedia.net.*;
 
 // IF THE SKETCH CRASHES OR HANGS ON STARTUP, MAKE SURE YOU ARE USING THE RIGHT SERIAL PORT:
 // 1. Have a look at the Processing console output of this sketch.
 // 2. Look for the serial port list and find the port you need (it's the same as in Arduino).
 // 3. Set your port number here:
-final static int SERIAL_PORT_NUM = 0;
+final static int SERIAL_PORT_NUM = 5;
 // 4. Try again.
 
 
@@ -37,10 +38,18 @@ float pitch = 0.0f;
 float roll = 0.0f;
 float yawOffset = 0.0f;
 
+
 PFont font;
+
+boolean useSerial = true;
 Serial serial;
 
 boolean synched = false;
+
+int PORT_RX=10000;
+String ip="192.168.1.203";
+UDP udp;//Create UDP object for recieving
+String RXdata = "";
 
 void drawArrow(float headWidthFactor, float headLengthFactor) {
   float headWidth = headWidthFactor * 200.0f;
@@ -113,8 +122,25 @@ boolean readToken(Serial serial, String token) {
   return true;
 }
 
+
+void receive(byte[] message, String ip, int port) {
+  print("Data (" + message.length + "): ");
+  RXdata = "";//message.toString();
+  //RXdata = "sdfsf";
+  for(int i = 0; i < message.length; ++i){
+    RXdata += (char) message[i];
+  }
+  println(RXdata);
+}
+ 
+
 // Global setup
 void setup() {
+  udp= new UDP(this, PORT_RX);//, ip);
+  udp.log(true);
+  udp.listen(true);
+  //udp.setReceiveHandler(myCustomReceiveHandler);
+  
   // Setup graphics
   size(640, 480, OPENGL);
   smooth();
@@ -125,14 +151,17 @@ void setup() {
   font = loadFont("Univers-66.vlw");
   textFont(font);
   
-  // Setup serial port I/O
-  println("AVAILABLE SERIAL PORTS:");
-  println(Serial.list());
-  String portName = Serial.list()[SERIAL_PORT_NUM];
-  println();
-  println("HAVE A LOOK AT THE LIST ABOVE AND SET THE RIGHT SERIAL PORT NUMBER IN THE CODE!");
-  println("  -> Using port " + SERIAL_PORT_NUM + ": " + portName);
-  serial = new Serial(this, portName, SERIAL_PORT_BAUD_RATE);
+  if(useSerial){
+    // Setup serial port I/O
+    println("AVAILABLE SERIAL PORTS:");
+    println(Serial.list());
+    String portName = Serial.list()[SERIAL_PORT_NUM];
+    println();
+    println("HAVE A LOOK AT THE LIST ABOVE AND SET THE RIGHT SERIAL PORT NUMBER IN THE CODE!");
+    println("  -> Using port " + SERIAL_PORT_NUM + ": " + portName);
+    serial = new Serial(this, portName, SERIAL_PORT_BAUD_RATE);
+  }else
+    println("Using network communication only");
 }
 
 void setupRazor() {
@@ -165,24 +194,39 @@ void draw() {
   background(0);
   lights();
 
-  // Sync with Razor 
-  if (!synched) {
-    textAlign(CENTER);
-    fill(255);
-    text("Connecting to Razor...", width/2, height/2, -200);
+  if(useSerial){
+    // Sync with Razor 
+    if (!synched) {
+      textAlign(CENTER);
+      fill(255);
+      text("Connecting to Razor...", width/2, height/2, -200);
+      
+      if (frameCount == 2)
+        setupRazor();  // Set ouput params and request synch token
+      else if (frameCount > 2)
+        synched = readToken(serial, "#SYNCH00\r\n");  // Look for synch token
+      return;
+    }
     
-    if (frameCount == 2)
-      setupRazor();  // Set ouput params and request synch token
-    else if (frameCount > 2)
-      synched = readToken(serial, "#SYNCH00\r\n");  // Look for synch token
-    return;
+    // Read angles from serial port
+    while (serial.available() >= 12) {
+      yaw = readFloat(serial);
+      pitch = readFloat(serial);
+      roll = readFloat(serial);
+    }
   }
   
-  // Read angles from serial port
-  while (serial.available() >= 12) {
-    yaw = readFloat(serial);
-    pitch = readFloat(serial);
-    roll = readFloat(serial);
+  if(RXdata.length() > 0 && RXdata.indexOf("#YPR=") == 0){
+    float x = Float.parseFloat(RXdata.split(",")[0].split("=")[1]);
+    float y = Float.parseFloat(RXdata.split(",")[1]);
+    float z = Float.parseFloat(RXdata.split(",")[2]);
+    //println(x);
+    //println(y);
+    //println(z);
+    yaw = x;
+    pitch = y;
+    roll = z;
+    RXdata = "";
   }
 
   // Draw board
