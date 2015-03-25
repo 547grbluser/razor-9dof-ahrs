@@ -11,7 +11,7 @@
 * Infos, updates, bug reports, contributions and feedback:
 *     https://github.com/ptrbrtz/razor-9dof-ahrs
 ******************************************************************************************/
-
+  
 /*
   NOTE: There seems to be a bug with the serial library in Processing versions 1.5
   and 1.5.1: "WARNING: RXTX Version mismatch ...".
@@ -138,6 +138,7 @@ void receive(byte[] message, String ip, int port) {
 void setup() {
   udp= new UDP(this, PORT_RX);//, ip);
   udp.log(true);
+  udp.broadcast(true);
   udp.listen(true);
   //udp.setReceiveHandler(myCustomReceiveHandler);
   
